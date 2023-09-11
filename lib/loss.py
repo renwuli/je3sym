@@ -34,7 +34,7 @@ class SymmetryDistanceError(nn.Module):
         for i in range(m):
             cur_plane = plane[i]
             cur_batch = batch[i]
-            cur_pos = pos[cur_batch]
+            cur_pos = pos[cur_batch.item()]
             loss.add_(self._distance(cur_pos, cur_plane))
 
         loss.div_(m)
