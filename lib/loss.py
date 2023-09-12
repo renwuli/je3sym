@@ -20,7 +20,7 @@ class SymmetryDistanceError(nn.Module):
         ref_pos = pos - 2 * (jt.sum(pos * normal, dim=1) + d).unsqueeze(-1) * normal
         return chamfer_loss(ref_pos.unsqueeze(0), pos.unsqueeze(0), bidirectional=True)
 
-    def forward(self, pos, plane, batch):
+    def execute(self, pos, plane, batch):
         """
         pos:    [b, n, 3]
         plane:  [m, 4]
@@ -30,12 +30,12 @@ class SymmetryDistanceError(nn.Module):
         m = plane.size(0)
         assert batch.size(0) == m
 
-        loss = jt.tensor(0.0, device=pos.device)
+        loss = jt.float32(0.0)
         for i in range(m):
             cur_plane = plane[i]
             cur_batch = batch[i]
             cur_pos = pos[cur_batch.item()]
-            loss.add_(self._distance(cur_pos, cur_plane))
+            loss += self._distance(cur_pos, cur_plane)
 
-        loss.div_(m)
+        loss /= m
         return loss

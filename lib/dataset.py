@@ -12,6 +12,21 @@ from jittor.dataset import Dataset
 
 from .util import read_point_cloud
 
+
+def scene_as_mesh(scene):
+    if isinstance(scene, trimesh.Scene):
+        mesh = trimesh.util.concatenate(
+            [
+                trimesh.Trimesh(vertices=m.vertices, faces=m.faces)
+                for m in scene.geometry.values()
+            ]
+        )
+    else:
+        mesh = scene
+
+    return mesh
+
+
 id2cat = {
     "02691156": "airplane",
     "02747177": "trash bin",
@@ -81,7 +96,7 @@ def voxel_downsample(point_cloud, size=0.02, npoints=-1, max_iters=int(1e2)):
         pcd.normals = o3d.utility.Vector3dVector(point_cloud[:, 3:])
     if npoints == -1:
         pcd = pcd.voxel_down_sample(size)
-        return jt.float32(pcd.points)
+        return np.array(pcd.points).astype(np.float32)
 
     upper = 0.0001
     lower = 0.5
@@ -95,11 +110,9 @@ def voxel_downsample(point_cloud, size=0.02, npoints=-1, max_iters=int(1e2)):
         else:
             lower = mid
     if normals:
-        pts = np.array(tmp.points)
-        nrms = np.array(tmp.normals)
-        pts = jt.float32(pts)
-        n = jt.float32(nrms)
-        return jt.cat([pts, n], dim=-1)
+        pts = np.array(tmp.points).astype(np.float32)
+        nrms = np.array(tmp.normals).astype(np.float32)
+        return np.concatenate([pts, nrms], axis=-1)
     else:
         pts = np.array(tmp.points)
         if pts.shape[0] >= npoints:
@@ -110,7 +123,7 @@ def voxel_downsample(point_cloud, size=0.02, npoints=-1, max_iters=int(1e2)):
             )
             pad_pts = pts[pad_indices]
             pts = np.concatenate([pts, pad_pts])
-        return jt.float32(pts)
+        return pts.astype(np.float32)
 
 
 class ShapeNet(Dataset):
@@ -165,13 +178,12 @@ class ShapeNet(Dataset):
 
     def __getitem__(self, index):
         model_path = self.data_pathes[index]
-        mesh = trimesh.load_mesh(model_path)
+        mesh = trimesh.load_mesh(model_path, force="mesh")
+        mesh = scene_as_mesh(mesh)
         dense_points = np.array(trimesh.sample.sample_surface(mesh, 10000)[0])
 
         R = scipy.spatial.transform.Rotation.random().as_matrix()
         dense_points = dense_points @ R
-        dense_points = jt.float32(dense_points)
-
         points = voxel_downsample(dense_points, npoints=self.npoints)
         return points
 
@@ -206,12 +218,10 @@ class ShapeNetEval(Dataset):
             if osp.exists(pointcloud_path):
                 continue
 
-            mesh = trimesh.load_mesh(model_path)
+            mesh = trimesh.load_mesh(model_path, force="mesh")
+            mesh = scene_as_mesh(mesh)
             dense_points = np.array(trimesh.sample.sample_surface(mesh, 10000)[0])
-            dense_points = jt.float32(dense_points)
-
             points = voxel_downsample(dense_points, npoints=self.npoints, size=0.01)
-
             points = points.cpu().numpy()
             pointcloud = o3d.geometry.PointCloud()
             pointcloud.points = o3d.utility.Vector3dVector(points)

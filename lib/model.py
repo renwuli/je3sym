@@ -95,14 +95,11 @@ class SymmetryNet(nn.Module):
                 -1, -1, n, -1
             )
             dists = jt.sum(jt.sqrt(jt.abs(dists)), -1) ** 2
-
             correspondence = self.topk(dists)[:, :, 1:, :]  # [b, n, k, n]
             correspondence = (
                 correspondence.transpose(1, 2).contiguous().reshape(batch_size, -1, n)
             )  # [b, k, n, n]
-            pos_prime = jt.matmul(
-                correspondence, pos
-            )  # [b,  k * n, n] * [b, n, 3] -> [b, k * n, 3]
+            pos_prime = jt.matmul(correspondence, pos)  # [b,  k * n, n] * [b, n, 3] -> [b, k * n, 3]
 
             plane_normal = jt.normalize(
                 pos_prime - pos.repeat(1, pos_prime.size(1) // n, 1), dim=-1

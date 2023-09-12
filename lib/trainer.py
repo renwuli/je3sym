@@ -61,7 +61,7 @@ class Trainer(BaseTrainer):
 
     def create_optimizers(self):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.opts.learning_rate)
-        self.lr_scheduler = optim.lr_scheduler.StepLR(
+        self.lr_scheduler = jt.lr_scheduler.StepLR(
             self.optimizer, step_size=10, gamma=0.7
         )
 
@@ -71,14 +71,13 @@ class Trainer(BaseTrainer):
             for i, data in enumerate(self.train_loader):
                 bar.set_description(f"Train: [{self.epoch}/{self.global_step}]")
                 pos = data
-                pos = pos.cuda()
 
                 self.optimizer.zero_grad()
                 cluster_plane, cluster_batch = self.model(pos)
 
                 loss = self.losser(pos, cluster_plane, cluster_batch)
                 self.loss = loss.item()
-                loss.backward()
+                self.optimizer.backward(self.loss)
                 self.optimizer.step()
 
                 self.logger.summary(
@@ -98,7 +97,6 @@ class Trainer(BaseTrainer):
 
             for i, data in enumerate(self.val_loader):
                 pos = data
-                pos = pos.cuda()
 
                 cluster_plane, cluster_batch = self.model(pos)
                 loss = self.losser(pos, cluster_plane, cluster_batch)
